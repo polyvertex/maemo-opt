@@ -1,0 +1,113 @@
+#! /usr/bin/perl -w
+
+use strict;
+use Cwd 'getcwd';
+use File::Find;           
+use File::Basename;
+use File::Path;
+
+my $debug = 0;
+my $verbose = 1;
+
+my $pkg = $ARGV[0];
+if ($pkg) {
+    if ($pkg eq "--auto") {
+        optify_auto ();
+    } else {
+        optify_package ($pkg, "all");
+    }
+} else {
+    print STDERR "Usage: maemo-optify-deb PACKAGE\n";
+    print STDERR "       maemo-optify-deb --auto\n";
+}
+
+sub dbg {
+    if ($debug) {
+        print STDERR @_;
+    }
+}
+
+sub vrb {
+    if ($debug || $verbose) {
+        print STDERR @_;
+    }
+}
+
+sub is_python_package {
+    my ($dir) = @_;
+
+    # XXX - some input from Pythonistas is required here.
+
+    return (-d "$dir/usr/lib/python2.5"
+            || -d "$dir/usr/share/pyshared"
+            || -d "$dir/usr/share/pyshared-data"
+            || -d "$dir/usr/lib/pyshared"
+            || -d "$dir/usr/share/python-support"
+            || -d "$dir/usr/lib/python-support");
+}
+
+sub should_auto_optify {
+    my ($dir) = @_;
+
+    if (-d "$dir/opt") {
+        print "$dir: /opt exists already, not optifying further.\n";
+        return 0;
+    } elsif (is_python_package ($dir)) {
+        print "$dir: Python package, not optifying.\n";
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+sub optify_package {
+    my ($pkg, $mode) = @_;
+
+    my $dir = basename ($pkg, ".deb");
+
+    if (-e $dir) {
+        print STDERR "Working directory $dir exists, aborting\n";
+        return;
+    }
+
+    # XXX - remove $dir always
+
+    system ("dpkg-deb", "-x", $pkg, $dir) == 0 || die "Can't extract archive";
+    system ("dpkg-deb", "-e", $pkg, $dir . "/DEBIAN") == 0 || die "Can't extract archive (control)";
+
+    if ($mode ne "auto" || should_auto_optify ($dir)) {
+        my $status = system ("maemo-optify", "--raw", $dir);
+        if ($status == 0) {
+            system ("dpkg-deb", "-b", $dir, $pkg) == 0 || die "Can't build archive";
+        } elsif ($status != 77*256) {
+            die "Optification failed: $status\n";
+        }
+    }
+    system ("rm", "-rf", $dir);
+}
+
+sub optify_auto {
+
+    my $mode = $ENV{MAEMO_OPTIFY_DEFAULT_MODE};
+
+    if (open CONFIG, "<", "debian/optify") {
+        $mode = <CONFIG>;
+        chomp ($mode);
+        close CONFIG;
+    }
+
+    if (! $mode) {
+        $mode="none";
+    }
+
+    print STDERR "maemo-optify-deb: mode $mode\n";
+
+    if ($mode ne "none") {
+        open FILES, "<", "debian/files" || die "$!";
+        while (<FILES>) {
+            my ($pkg) = split();
+            optify_package ("../" . $pkg, $mode);
+        }
+        close FILES;
+    }
+}

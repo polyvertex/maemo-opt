@@ -1,0 +1,95 @@
+These are some tools to make moving file into /opt convenient for
+Debian packages.  This is useful on Maemo 5 since /opt is on a
+different partition than / and has much more space.
+
+* Overview
+
+** maemo-optify
+
+The maemo-optify tool works on a Debian package in unpacked form.
+This is a directory as it is created by debian/rules just before
+calling dpkg-deb.  It will move selected files to /opt/maemo/ and
+replace the originals with symbol links to the new location.  You can
+call it from debian/rules right before dh_builddep, for example.
+
+** maemo-optify-deb
+
+The maemo-optify-deb tool works on a Debian package itself.  It will
+unpack it, maybe run maemo-optify, and pack it up again.
+
+When passing the --auto option, maemo-optify-deb will read some
+configuration information from a freshly built source package in front
+of it and will perform the requested optifications.  See below for how
+to control this.
+
+* Optification from debian/rules
+
+You can put a call to "maemo-optify" into debian/rules, immediately
+after dh_gencontrol or equivalent, like this:
+
+    maemo-optify PACKAGE DIR
+
+where PACKAGE is the name of the binary package that you want to
+optify, and DIR is the directory with the files of the package.  If
+you omit DIR, it defaults to "debian/PACKAGE".  (The name of the
+package is needed for the heuristics that maemo-optify performs.)
+
+If you omit PACKAGE as well, maemo-optify will work on all packages
+that are listed in debian/control.
+
+* Optification of .deb files
+
+Optification of an existing .deb archive file is as simple as
+
+    $ fakeroot maemo-optify-deb package.deb
+
+This will modify package.deb in place.  (The fakeroot is there to make
+sure that the files keep their original permissions and ownership
+information.)
+
+* Control
+
+You can control the tools with the "debian/optify" file in your source
+package.  Right now, it can only contain a single word that determines
+the "mode" for 'maemo-optify-deb --auto'.  The mode can be one of the
+following:
+
+ - none
+ 
+ No optification is done.
+ 
+ - all
+
+ All packages listed in debian/files are optified.
+
+ - auto
+
+ Some of the packages listed in debian/files are optified, based on
+ some heuristic.  The heuristic is designed to make "auto" a useful
+ default mode that works with almost all packages.
+
+When in "auto" mode, maemo-optify-deb will investigate each package to
+decide whether to optify it or not.  Right now, a package is not
+optified in this case when it already contains the "/opt" directory,
+or when it looks like it might be a Python package.
+
+When debian/optify does not exist, the default mode is taken from the
+MAEMO_OPTIFY_DEFAULT_MODE environment variable.  When that variable is
+not set either, the mode is "none".
+
+Maemo-optify has a heuristic for selecting which files to move.  By
+default, it will never move files that are less than 2kb and it will
+only move directories that have the same name as the package.  In the
+future, this might be controllable from debian/<package>.optify files.
+
+
+TODO
+
+- Read debian/<package>.optify in maemo-optify and get things like
+  threshold and whitelists / blacklists from it.
+
+- Add option to maemo-optify for the package name so that it doesn't
+  need to be guessed from the directory.
+
+- Make maemo-optify-deb robust and give it an option to not overwrite
+  the package in place.

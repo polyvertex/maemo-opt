@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# See the maemo-opt script in the same directory for more info.
+"$(dirname "$0")/maemo-opt" deb "$@"

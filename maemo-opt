@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#
+# Bootstrap script to run maemo-optify and maemo-optify-deb without having to
+# install them.
+#
+# Usage:
+#   ./maemo-opt ...
+#   ./maemo-opt deb ...
+#
+# By default, scripts are invoked with fakeroot. You can define the
+# MAEMOOPT_NO_FAKEROOT environment variable to any true value before launching
+# this script to avoid using it. Example:
+#   MAEMOOPT_NO_FAKEROOT=1; ./maemo-opt ...
+#
+# The MAEMO_OPTIFY_SNIPPET_DIR environment variable indicates the original
+# maemo-optify and maemo-optify-deb scripts to look for their sub-scripts into
+# an other directory than the default hard-coded one
+# (i.e.: /usr/share/maemo-optify).
+#
+# Jean-Charles Lefebvre <polyvertex@gmail.com>
+#
+
+die() { echo "** ERROR: $@">&2; exit 1; }
+
+# ensure we've got everything we need
+for cmd in dirname dpkg dpkg-deb; do
+    type -t "$cmd" &>/dev/null || die "$cmd command required"
+done
+
+# should we use fakeroot?
+[ -z "$MAEMOOPT_FAKEROOT" ] && MAEMOOPT_FAKEROOT="fakeroot"
+[ -n "$MAEMOOPT_NO_FAKEROOT" ] && MAEMOOPT_FAKEROOT=""
+[ -n "$MAEMOOPT_FAKEROOT" ] \
+    && { type -t "$MAEMOOPT_FAKEROOT" &>/dev/null || die "$MAEMOOPT_FAKEROOT command required"; }
+
+# which sub-script should we run?
+MAEMOOPT_SUBSCRIPT="maemo-optify"
+[ -n "$1" -a "$1" == "deb" ] && { MAEMOOPT_SUBSCRIPT+="-deb"; shift; }
+
+# go
+export MAEMO_OPTIFY_SNIPPET_DIR="$(dirname "${BASH_SOURCE[0]}")/maemo-opt.d"
+export PATH="$MAEMO_OPTIFY_SNIPPET_DIR:$PATH"
+$MAEMOOPT_FAKEROOT "$MAEMO_OPTIFY_SNIPPET_DIR/$MAEMOOPT_SUBSCRIPT" "$@" \
+    || die "Operation failed"
