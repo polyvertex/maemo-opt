@@ -17,6 +17,9 @@
 # an other directory than the default hard-coded one
 # (i.e.: /usr/share/maemo-optify).
 #
+# The original source code of maemo-optify distributed with this bootstrap
+# can be found at: https://maemo.gitorious.org/maemo-af/maemo-optify
+#
 # Jean-Charles Lefebvre <polyvertex@gmail.com>
 #
 
